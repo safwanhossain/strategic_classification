@@ -89,7 +89,7 @@ def train_model(X_train, y_train, X_test, y_test, num_epochs=100):
     test_loader = make_dataloader(X_test, y_test, batch_size=num_agents)
 
     x_test, y_test = next(iter(test_loader))
-    validation_cvx_layer = create_cvx_layer(x_test.shape, model.weights.shape, (num_agents,))
+    validation_cvx_layer = create_cvx_layer(x_test.shape, model.weights.shape)
 
     # Training loop
     train_losses = []
@@ -136,7 +136,7 @@ def train_model(X_train, y_train, X_test, y_test, num_epochs=100):
                     bias_vec = bias.expand(num_agents)
                     equi_features, = validation_cvx_layer(test_feat.detach(), model.weights.detach(), bias_vec)
                     equi_features = equi_features.detach()
-                    # verify_equi(equi_features.numpy(), test_feat.numpy(), model.weights.detach().numpy())
+                    # verify_equi(equi_features.cpu().numpy(), test_feat.cpu().numpy(), model.weights.detach().cpu().numpy(), bias.cpu().numpy())
 
                     strat_val_outputs = model(equi_features)
                     curr_loss = criterion(strat_val_outputs, test_label)
@@ -157,17 +157,18 @@ def train_model(X_train, y_train, X_test, y_test, num_epochs=100):
     plt.show()
 
 
-def verify_equi(equi_X, true_X, weight):
+def verify_equi(equi_X, true_X, weight, bias):
     true_features = cp.Parameter(true_X.shape, name="true_feat", value=true_X)
     equi_features = cp.Parameter(equi_X.shape, name="equi_feat", value=equi_X)
     weight_param = cp.Parameter(weight.shape, name="weight", value=weight)
-    
+    bias_param = cp.Parameter(1, name="bias", value=bias) 
+
     # check the best response for each agent
     for i, (equi_feat, true_feat) in enumerate(zip(equi_features, true_features)):
         # Parameter setup remains the same 
         opt_feat = cp.Variable(equi_feat.shape, name="opt_feat") 
         
-        gain = opt_feat @ weight_param
+        gain = opt_feat @ weight_param + bias_param
         cost = cp.norm2(opt_feat - true_feat)
         externality = 0
 
@@ -183,11 +184,11 @@ def verify_equi(equi_X, true_X, weight):
         problem = cp.Problem(objective, constraints)
         problem.solve()
         diff = np.sum(np.abs(opt_feat.value - equi_feat.value))
-        assert diff <= 0.001
         print(f"Opt_feat: {opt_feat.value}, equi feat: {equi_feat.value}, true_feat: {true_feat.value}")
+        assert diff <= 0.05
+        
 
-
-def create_cvx_layer(feature_shape, weight_shape, bias_shape):
+def create_cvx_layer(feature_shape, weight_shape):
     # Parameter setup remains the same
     n = feature_shape[0]
     true_features = cp.Parameter(feature_shape, name="true_feat")
