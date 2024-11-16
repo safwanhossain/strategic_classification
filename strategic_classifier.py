@@ -16,10 +16,23 @@ import pickle
 import cvxpy as cp
 from cvxpylayers.torch import CvxpyLayer
 
-from hyperparams import exp1, exp2
+from hyperparams import (
+    exp_c2_e1_n8,
+    exp_c3_e15_n8,
+    exp_c2_e1_n10,
+    exp_c3_e15_n10, 
+    exp_c2_e1_n12,
+    exp_c3_e15_n12,
+    exp_c2_e1_n12,
+    exp_c3_e15_n12,
+    exp_c2_e1_n16,
+    exp_c3_e15_n16,
+    exp_c2_e1_n16,
+    exp_c3_e15_n16, 
+)
 
-VERBOSE = True
-NUM_EPOCHS = 50
+VERBOSE = False
+NUM_EPOCHS = 2
 NUM_RUNS = 1
 
 # Add this near the top of the file, after imports
@@ -264,82 +277,94 @@ def create_cvx_layer(feature_shape, weight_shape, exp):
 
 
 if __name__ == "__main__":
-    exp_to_run = exp1
-    exp_name = "exp1"
-
-    results_dict = {
-        "config" : exp_to_run,
-        "baseline_train_losses" : np.zeros((NUM_RUNS, NUM_EPOCHS)),
-        "baseline_train_accuracies" : np.zeros((NUM_RUNS, NUM_EPOCHS)), 
-        "baseline_val_losses" : np.zeros((NUM_RUNS, NUM_EPOCHS)),
-        "baseline_val_accuracies" : np.zeros((NUM_RUNS, NUM_EPOCHS)),
-        "baseline_strat_val_losses" : np.zeros((NUM_RUNS, NUM_EPOCHS)),
-        "baseline_strat_val_accuracies" : np.zeros((NUM_RUNS, NUM_EPOCHS)),
-        "strategic_train_losses" : np.zeros((NUM_RUNS, NUM_EPOCHS)),
-        "strategic_train_accuracies" : np.zeros((NUM_RUNS, NUM_EPOCHS)),
-        "strategic_strat_val_losses" : np.zeros((NUM_RUNS, NUM_EPOCHS)),
-        "strategic_strat_val_accuracies" : np.zeros((NUM_RUNS, NUM_EPOCHS)) 
+    exps = {
+        "exp_c2_e1_n10" : exp_c2_e1_n10,
+        "exp_c3_e15_n10" : exp_c3_e15_n10,
+        "exp_c2_e1_n12" : exp_c2_e1_n12,
+        "exp_c3_e15_n12" : exp_c3_e15_n12,
+        "exp_c2_e1_n16" : exp_c2_e1_n16,
+        "exp_c3_e15_n16" : exp_c3_e15_n16,
+        #"exp_c2_e1_n8" : exp_c2_e1_n8,
+        #"exp_c3_e15_n8" : exp_c3_e15_n8,
     }
+    
+    for exp_name, exp_to_run in exps:
+        results_dict = {
+            "config" : exp_to_run,
+            "num_runs" : NUM_RUNS,
+            "num_epochs" : NUM_EPOCHS,
+            "baseline_train_losses" : np.zeros((NUM_RUNS, NUM_EPOCHS)),
+            "baseline_train_accuracies" : np.zeros((NUM_RUNS, NUM_EPOCHS)), 
+            "baseline_val_losses" : np.zeros((NUM_RUNS, NUM_EPOCHS)),
+            "baseline_val_accuracies" : np.zeros((NUM_RUNS, NUM_EPOCHS)),
+            "baseline_strat_val_losses" : np.zeros((NUM_RUNS, NUM_EPOCHS)),
+            "baseline_strat_val_accuracies" : np.zeros((NUM_RUNS, NUM_EPOCHS)),
+            "strategic_train_losses" : np.zeros((NUM_RUNS, NUM_EPOCHS)),
+            "strategic_train_accuracies" : np.zeros((NUM_RUNS, NUM_EPOCHS)),
+            "strategic_strat_val_losses" : np.zeros((NUM_RUNS, NUM_EPOCHS)),
+            "strategic_strat_val_accuracies" : np.zeros((NUM_RUNS, NUM_EPOCHS)) 
+        }
 
-    # Run the experiments
-    for run in range(NUM_RUNS):
-        X_train, y_train, X_test, y_test = make_dataset(exp_to_run)
-        baseline_ret_obj = train_model(
-            X_train, y_train, X_test, y_test, 
-            strat=False, exp=exp_to_run, num_epochs=NUM_EPOCHS
-        )
-        results_dict["baseline_train_losses"][run] = baseline_ret_obj["train_losses"]
-        results_dict["baseline_train_accuracies"][run] = baseline_ret_obj["train_accuracies"]
-        results_dict["baseline_val_losses"][run] = baseline_ret_obj["val_losses"]
-        results_dict["baseline_val_accuracies"][run] = baseline_ret_obj["val_accuracies"]
-        results_dict["baseline_strat_val_losses"][run] = baseline_ret_obj["strat_val_losses"]
-        results_dict["baseline_strat_val_accuracies"][run] = baseline_ret_obj["strat_val_accuracies"]
+        # Run the experiments
+        for run in tqdm(range(NUM_RUNS)):
+            X_train, y_train, X_test, y_test = make_dataset(exp_to_run)
+            baseline_ret_obj = train_model(
+                X_train, y_train, X_test, y_test, 
+                strat=False, exp=exp_to_run, num_epochs=NUM_EPOCHS
+            )
+            results_dict["baseline_train_losses"][run] = baseline_ret_obj["train_losses"]
+            results_dict["baseline_train_accuracies"][run] = baseline_ret_obj["train_accuracies"]
+            results_dict["baseline_val_losses"][run] = baseline_ret_obj["val_losses"]
+            results_dict["baseline_val_accuracies"][run] = baseline_ret_obj["val_accuracies"]
+            results_dict["baseline_strat_val_losses"][run] = baseline_ret_obj["strat_val_losses"]
+            results_dict["baseline_strat_val_accuracies"][run] = baseline_ret_obj["strat_val_accuracies"]
 
-        if VERBOSE:
-            print("Finished non-strategic Train")
+            if VERBOSE:
+                print("Finished non-strategic Train")
+            
+            # Adding little noise to stabalize training
+            X_train += torch.normal(0, 0.01, X_train.shape).to(device)
+            strat_ret_obj = train_model(
+                X_train, y_train, X_test, y_test, 
+                strat=True, exp=exp_to_run, num_epochs=NUM_EPOCHS
+            )
+            results_dict["strategic_train_losses"][run] = strat_ret_obj["train_losses"]
+            results_dict["strategic_train_accuracies"][run] = strat_ret_obj["train_accuracies"]
+            results_dict["strategic_strat_val_losses"][run] = strat_ret_obj["strat_val_losses"]
+            results_dict["strategic_strat_val_accuracies"][run] = strat_ret_obj["strat_val_accuracies"]       
+
+        print("Finished Experiments. Saving Results ...")
         
-        # Adding little noise to stabalize training
-        X_train += torch.normal(0, 0.01, X_train.shape).to(device)
-        strat_ret_obj = train_model(
-            X_train, y_train, X_test, y_test, 
-            strat=True, exp=exp_to_run, num_epochs=NUM_EPOCHS
+        # Convert numpy arrays to lists for JSON serialization
+        results_dict_serializable = {key: value.tolist() if isinstance(value, np.ndarray) else value for key, value in results_dict.items()}
+
+        # Save the dictionary as a JSON file
+        with open(f"{exp_name}_results.json", 'w') as json_file:
+            json.dump(results_dict_serializable, json_file)
+
+        with open(f"{exp_name}_results.pkl", 'wb') as pickle_file:
+            pickle.dump(results_dict, pickle_file)
+
+        print("Saved Results. Logging Results ...")
+        wandb.init(
+            project="strategic_classification",
+            name=exp_name
         )
-        results_dict["strategic_train_losses"][run] = strat_ret_obj["train_losses"]
-        results_dict["strategic_train_accuracies"][run] = strat_ret_obj["train_accuracies"]
-        results_dict["strategic_strat_val_losses"][run] = strat_ret_obj["strat_val_losses"]
-        results_dict["strategic_strat_val_accuracies"][run] = strat_ret_obj["strat_val_accuracies"]       
-
-    print("Finished Experiments. Saving Results ...")
-    # Convert numpy arrays to lists for JSON serialization
-    results_dict_serializable = {key: value.tolist() if isinstance(value, np.ndarray) else value for key, value in results_dict.items()}
-
-    # Save the dictionary as a JSON file
-    with open("f{exp_name}_results.json", 'w') as json_file:
-        json.dump(results_dict_serializable, json_file)
-
-    with open("f{exp_name}_results.pkl", 'wb') as pickle_file:
-        pickle.dump(results_dict, pickle_file)
-
-    print("Saved Results. Logging Results ...")
-    wandb.init(
-        # set the wandb project where this run will be logged
-        project="strategic_classification",
-    )
-    wandb.config.update(
-        exp_to_run
-    )
-    for epoch in NUM_EPOCHS:
-        wandb.log({
-            "baseline_train_losses" : np.mean(results_dict["baseline_train_losses"], axis=0),
-            "baseline_train_accuracies" : np.mean(results_dict["baseline_train_accuracies"], axis=0), 
-            "baseline_val_losses" : np.mean(results_dict["baseline_val_losses"], axis=0),
-            "baseline_val_accuracies" : np.mean(results_dict["baseline_val_accuracies"], axis=0),
-            "baseline_strat_val_losses" : np.mean(results_dict["baseline_strat_val_losses"], axis=0),
-            "baseline_strat_val_accuracies" : np.mean(results_dict["baseline_strat_val_accuracies"], axis=0),
-            "strategic_train_losses" : np.mean(results_dict["strategic_train_losses"], axis=0),
-            "strategic_train_accuracies" : np.mean(results_dict["strategic_train_accuracies"], axis=0),
-            "strategic_strat_val_losses" : np.mean(results_dict["strategic_strat_val_losses"], axis=0),
-            "strategic_strat_val_accuracies" : np.mean(results_dict["strategic_strat_val_accuracies"], axis=0) 
-        })
+        wandb.config.update(
+            exp_to_run
+        )
+        for epoch in range(NUM_EPOCHS):
+            wandb.log({
+                "baseline_train_losses" : np.mean(results_dict["baseline_train_losses"][:, epoch]),
+                "baseline_train_accuracies" : np.mean(results_dict["baseline_train_accuracies"][:, epoch]), 
+                "baseline_val_losses" : np.mean(results_dict["baseline_val_losses"][:, epoch]),
+                "baseline_val_accuracies" : np.mean(results_dict["baseline_val_accuracies"][:, epoch]),
+                "baseline_strat_val_losses" : np.mean(results_dict["baseline_strat_val_losses"][:, epoch]),
+                "baseline_strat_val_accuracies" : np.mean(results_dict["baseline_strat_val_accuracies"][:, epoch]),
+                "strategic_train_losses" : np.mean(results_dict["strategic_train_losses"][:, epoch]),
+                "strategic_train_accuracies" : np.mean(results_dict["strategic_train_accuracies"][:, epoch]),
+                "strategic_strat_val_losses" : np.mean(results_dict["strategic_strat_val_losses"][:, epoch]),
+                "strategic_strat_val_accuracies" : np.mean(results_dict["strategic_strat_val_accuracies"][:, epoch]) 
+            })
 
    
