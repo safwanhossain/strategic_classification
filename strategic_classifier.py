@@ -19,26 +19,24 @@ from cvxpylayers.torch import CvxpyLayer
 from hyperparams import (
     exp_c2_e1_n8,
     exp_c3_e15_n8,
+    exp_c5_e25_n8,
     exp_c2_e1_n10,
     exp_c3_e15_n10, 
+    exp_c5_e25_n10, 
     exp_c2_e1_n12,
     exp_c3_e15_n12,
-    exp_c2_e1_n12,
-    exp_c3_e15_n12,
+    exp_c5_e25_n12, 
     exp_c2_e1_n16,
     exp_c3_e15_n16,
-    exp_c2_e1_n16,
-    exp_c3_e15_n16, 
 )
 
-VERBOSE = False
-NUM_EPOCHS = 2
-NUM_RUNS = 1
+VERBOSE = True
+NUM_EPOCHS = 40
+NUM_RUNS = 12
 
 # Add this near the top of the file, after imports
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-if VERBOSE:
-    print(f"Running on {device}")
+print(f"Running on {device}")
 
 
 def make_dataset(exp):
@@ -146,7 +144,7 @@ def train_model(X_train, y_train, X_test, y_test, strat, exp, num_epochs=70, ini
     strat_val_losses = []
     strat_val_accuracies = []
 
-    for epoch in tqdm(range(num_epochs)):
+    for epoch in range(num_epochs):
         # Training phase
         model.train()
         epoch_train_loss = 0
@@ -278,17 +276,21 @@ def create_cvx_layer(feature_shape, weight_shape, exp):
 
 if __name__ == "__main__":
     exps = {
-        "exp_c2_e1_n10" : exp_c2_e1_n10,
-        "exp_c3_e15_n10" : exp_c3_e15_n10,
-        "exp_c2_e1_n12" : exp_c2_e1_n12,
-        "exp_c3_e15_n12" : exp_c3_e15_n12,
-        "exp_c2_e1_n16" : exp_c2_e1_n16,
-        "exp_c3_e15_n16" : exp_c3_e15_n16,
         #"exp_c2_e1_n8" : exp_c2_e1_n8,
         #"exp_c3_e15_n8" : exp_c3_e15_n8,
+        #"exp_c5_e25_n8" : exp_c5_e25_n8
+        #"exp_c2_e1_n10" : exp_c2_e1_n10,
+        #"exp_c3_e15_n10" : exp_c3_e15_n10,
+        #"exp_c5_e25_n10" : exp_c5_e25_n10, 
+        #"exp_c2_e1_n12" : exp_c2_e1_n12,
+        #"exp_c3_e15_n12" : exp_c3_e15_n12,
+        "exp_c5_e25_n12" : exp_c5_e25_n12,
+        #"exp_c2_e1_n16" : exp_c2_e1_n16,
+        #"exp_c3_e15_n16" : exp_c3_e15_n16,
     }
     
-    for exp_name, exp_to_run in exps:
+    for exp_name, exp_to_run in exps.items():
+        print(f"Started Experiment {exp_name}.")
         results_dict = {
             "config" : exp_to_run,
             "num_runs" : NUM_RUNS,
@@ -333,7 +335,7 @@ if __name__ == "__main__":
             results_dict["strategic_strat_val_losses"][run] = strat_ret_obj["strat_val_losses"]
             results_dict["strategic_strat_val_accuracies"][run] = strat_ret_obj["strat_val_accuracies"]       
 
-        print("Finished Experiments. Saving Results ...")
+        print(f"Finished Experiment {exp_name}. Saving Results ...")
         
         # Convert numpy arrays to lists for JSON serialization
         results_dict_serializable = {key: value.tolist() if isinstance(value, np.ndarray) else value for key, value in results_dict.items()}
